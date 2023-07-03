@@ -12,12 +12,8 @@ using namespace std;
 
 class HNSWBinding {
 public:
-    HNSWBinding() {
-        index = NULL;
-    }
-
-    int createNewIndex(char* spaceName, int dimension) {
-        index = new Index<float>(spaceName, dimension);
+    HNSWBinding(int dimension) {
+        index = new Index<float>("L2", dimension);
     }
 
     int initNewIndex(int maxNumberOfElements, int M=16, int efConstruction=200, int randomSeed=100) const {

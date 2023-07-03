@@ -3,9 +3,7 @@ use tonic::{transport::Server, Request, Response, Status};
 use hello_world::greeter_server::{Greeter, GreeterServer};
 use hello_world::{HelloReply, HelloRequest};
 
-#[global_allocator]
-static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
-
+mod hnswrustindex;
 
 pub mod hello_world {
     tonic::include_proto!("helloworld");
@@ -33,6 +31,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(1);
 
     println!("Running with {} threads", cpus);
+    println!("Initializing HNSW index");
+    hnswrustindex::initIndex();
 
     // Esentially the same as tokio::main, but with number of threads set to
     // avoid thrashing when cggroup limits are applied by Docker.

@@ -1,9 +1,11 @@
 wait_on_tcp50051() {
-	for ((i=1;i<=10*30;i++)); do
-		nc -z localhost 50051 && return 0
-		sleep .1
-	done
-	return 1
+  for ((i=1;i<=10*30;i++)); 
+      do
+	 echo "waiting for server"
+	 nc -z localhost 50051 && return 0
+	 sleep .1
+      done
+  return 1
 }
 
 
@@ -19,6 +21,7 @@ docker run \
 	--rm \
 	--cpus "${GRPC_SERVER_CPUS}" \
 	--memory "${GRPC_SERVER_RAM}" \
+	--security-opt seccomp=unconfined \
 	-e GRPC_SERVER_CPUS \
 	-e GRPC_SERVER_RAM \
 	-p 50051:50051 \
@@ -27,9 +30,9 @@ docker run \
 	"$GRPC_IMAGE_NAME:${NAME}-$GRPC_REQUEST_SCENARIO" >/dev/null
 
 printf 'Waiting for server to come up... '
-	if ! wait_on_tcp50051; then
-	echo 'server unresponsive!'
-	exit 1
+if ! wait_on_tcp50051; then
+   echo 'server unresponsive!'
+   exit 1
 fi
 
 echo 'ready.'
