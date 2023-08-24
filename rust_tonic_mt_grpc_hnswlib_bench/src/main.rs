@@ -32,7 +32,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Running with {} threads", cpus);
     println!("Initializing HNSW index");
-    hnswrustindex::initIndex();
+    let index = hnswrustindex::Index::new();
+    index.searchIndex();
 
     // Esentially the same as tokio::main, but with number of threads set to
     // avoid thrashing when cggroup limits are applied by Docker.

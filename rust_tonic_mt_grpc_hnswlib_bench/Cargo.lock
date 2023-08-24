@@ -1154,6 +1154,7 @@ dependencies = [
  "cxx",
  "miette",
  "prost",
+ "rand",
  "tokio",
  "tonic",
  "tonic-build",

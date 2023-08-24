@@ -15,6 +15,7 @@ prost = "0.11"
 tokio = { version = "1.28", features = ["parking_lot", "rt-multi-thread", "macros", "io-util"] }
 cxx = "1.0.78"
 autocxx = "0.25.0"
+rand = "0.8.4"
 
 
 [build-dependencies]

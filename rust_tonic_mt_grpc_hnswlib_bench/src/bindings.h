@@ -24,6 +24,10 @@ public:
         index->add_item(item, item_normalized, id);
     }
 
+    int setEf(int param) const {
+        index->set_ef(param);
+    }
+
     int knnQuery(float* input, bool input_normalized, int k, int* indices /* output */, float* coefficients /* output */) {
         index->knn_query(input, input_normalized, k, indices, coefficients);
     }
