@@ -28,7 +28,7 @@ public:
         index->set_ef(param);
     }
 
-    int knnQuery(float* input, bool input_normalized, int k, int* indices /* output */, float* coefficients /* output */) {
+    int knnQuery(float* input, bool input_normalized, int k, int* indices /* output */, float* coefficients /* output */) const {
         index->knn_query(input, input_normalized, k, indices, coefficients);
     }
 

@@ -15,6 +15,9 @@ pub struct Index{
     index: Pin<Box<HNSWBinding>>
 }
 
+unsafe impl Send for HNSWBinding {}
+unsafe impl Sync for HNSWBinding {}
+
 impl Index {
     pub fn new() -> Self {
         // Initializing an index with 128 dimesnions
@@ -58,7 +61,7 @@ impl Index {
         };
     }
 
-    pub fn searchIndex(mut self) {
+    pub fn searchIndex(&self) {
         const dimension:usize = 128;
         let mut query_vector: [f32; dimension] = [0.051; dimension];
 
@@ -67,7 +70,7 @@ impl Index {
         let mut coefficients:[f32;k] = [0.0;k];
 
         unsafe { 
-            let response = self.index.as_mut().knnQuery(query_vector.as_mut_ptr(), true, autocxx::c_int(k as i32),  indices.as_mut_ptr(), coefficients.as_mut_ptr());
+            let response = self.index.knnQuery(query_vector.as_mut_ptr(), true, autocxx::c_int(k as i32),  indices.as_mut_ptr(), coefficients.as_mut_ptr());
             println!("Indices {:?}", indices);
             println!("Coefficients {:?}", coefficients);
             println!("Total elements: {}", i32::from(self.index.getCurrentCount()));

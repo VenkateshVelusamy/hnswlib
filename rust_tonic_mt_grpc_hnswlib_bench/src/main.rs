@@ -1,5 +1,5 @@
 use tonic::{transport::Server, Request, Response, Status};
-
+use std::sync::{Arc, RwLock};
 use hello_world::greeter_server::{Greeter, GreeterServer};
 use hello_world::{HelloReply, HelloRequest};
 
@@ -9,8 +9,9 @@ pub mod hello_world {
     tonic::include_proto!("helloworld");
 }
 
-#[derive(Default)]
-pub struct MyGreeter {}
+pub struct MyGreeter {
+     hnswindex: hnswrustindex::Index,
+}
 
 #[tonic::async_trait]
 impl Greeter for MyGreeter {
@@ -18,9 +19,11 @@ impl Greeter for MyGreeter {
         &self,
         request: Request<HelloRequest>,
     ) -> Result<Response<HelloReply>, Status> {
+        
         let reply = hello_world::HelloReply {
             response: request.into_inner().request,
         };
+        self.hnswindex.searchIndex();
         Ok(Response::new(reply))
     }
 }
@@ -42,12 +45,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .enable_all()
         .build()
         .unwrap()
-        .block_on(serve())
+        .block_on(serve(index))
 }
 
-async fn serve() -> Result<(), Box<dyn std::error::Error>> {
+async fn serve(index: hnswrustindex::Index) -> Result<(), Box<dyn std::error::Error>> {
     let addr = "0.0.0.0:50051".parse().unwrap();
-    let greeter = MyGreeter::default();
+    let greeter = MyGreeter {
+       hnswindex: index, 
+    };
 
     println!("GreeterServer listening on {}", addr);
 
