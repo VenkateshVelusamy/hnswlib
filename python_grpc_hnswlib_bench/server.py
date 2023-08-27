@@ -24,16 +24,41 @@ import helloworld_pb2_grpc
 
 
 class Greeter(helloworld_pb2_grpc.GreeterServicer):
+    def __init__(self, index, data):
+        self.index = index
+        self.data = data
 
     def SayHello(self, request, context):
+        labels, distances = self.index.knn_query(self.data[10], k = 1)
+        print("Searched item: ", labels)
         return helloworld_pb2.HelloReply(response=request.request)
 
 
 def serve():
+    dim = 128
+    num_elements = 10000
+
+    # Generating sample data
+    data = np.float32(np.random.random((num_elements, dim)))
+    ids = np.arange(num_elements)
+
+    # Declaring index
+    p = hnswlib.Index(space = 'l2', dim = dim) # possible options are l2, cosine or ip
+
+    # Initializing index - the maximum number of elements should be known beforehand
+    p.init_index(max_elements = num_elements, ef_construction = 1024, M = 100)
+
+    # Element insertion (can be called several times):
+    p.add_items(data, ids)
+
+    # Controlling the recall by setting ef:
+    p.set_ef(10000) # ef should always be > k
+
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
-    helloworld_pb2_grpc.add_GreeterServicer_to_server(Greeter(), server)
+    helloworld_pb2_grpc.add_GreeterServicer_to_server(Greeter(p, data), server)
     server.add_insecure_port('[::]:50051')
     server.start()
+    print("Server started listening on port 50051")
     server.wait_for_termination()
 
 
