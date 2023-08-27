@@ -2,7 +2,7 @@ export GRPC_SERVER_CPUS=${GRPC_SERVER_CPUS:-"4"}
 export GRPC_SERVER_RAM=${GRPC_SERVER_RAM:-"1024m"}
 export GRPC_REQUEST_SCENARIO=${GRPC_REQUEST_SCENARIO:-"complex_proto"}
 export GRPC_IMAGE_NAME="${GRPC_IMAGE_NAME:-grpc_bench}"
-NAME=rust_tonic_mt_grpc_hnswlib_bench
+NAME=cpp_grpc_hnswlib_mt_bench
 RESULTS_DIR=results
 
 mkdir -p "${RESULTS_DIR}"
@@ -21,10 +21,12 @@ docker run \
 	--tty \
 	"$GRPC_IMAGE_NAME:${NAME}-$GRPC_REQUEST_SCENARIO" >/dev/null
 
+
 printf 'Waiting for server to come up... '
 
 # We are letting 60 seconds for the server to build hnsw index
 sleep 60
+
 
 timeout 60 sh -c 'until nc -z $0 $1; do sleep 1; done' localhost 50051
 if ! [[ $? == 0 ]] 
@@ -45,7 +47,6 @@ export GRPC_CLIENT_CPUS=${GRPC_CLIENT_CPUS:-"1"}
 export GRPC_REQUEST_SCENARIO=${GRPC_REQUEST_SCENARIO:-"complex_proto"}
 export GRPC_IMAGE_NAME="${GRPC_IMAGE_NAME:-grpc_bench}"
 export GRPC_GHZ_TAG="${GRPC_GHZ_TAG:-0.114.0}"
-
 
 # Start the gRPC Client
 docker run --name ghz --rm --network=host -v "${PWD}/proto:/proto:ro" \
@@ -71,3 +72,4 @@ cat << EOF
 	$(cat "${RESULTS_DIR}/${NAME}".report | grep "Requests/sec" | sed -E 's/^ +/    /')
 
 EOF
+

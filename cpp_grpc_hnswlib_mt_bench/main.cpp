@@ -20,6 +20,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include "hnswlib/hnswlib.h"
 
 #include <grpcpp/grpcpp.h>
 #include <grpc/support/log.h>
@@ -40,6 +41,61 @@ using helloworld::HelloRequest;
 using helloworld::HelloReply;
 using helloworld::Greeter;
 
+template<class Function>
+inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn) {
+    if (numThreads <= 0) {
+        numThreads = std::thread::hardware_concurrency();
+    }
+
+    if (numThreads == 1) {
+        for (size_t id = start; id < end; id++) {
+            fn(id, 0);
+        }
+    } else {
+        std::vector<std::thread> threads;
+        std::atomic<size_t> current(start);
+
+        // keep track of exceptions in threads
+        // https://stackoverflow.com/a/32428427/1713196
+        std::exception_ptr lastException = nullptr;
+        std::mutex lastExceptMutex;
+
+        for (size_t threadId = 0; threadId < numThreads; ++threadId) {
+            threads.push_back(std::thread([&, threadId] {
+                while (true) {
+                    size_t id = current.fetch_add(1);
+
+                    if (id >= end) {
+                        break;
+                    }
+
+                    try {
+                        fn(id, threadId);
+                    } catch (...) {
+                        std::unique_lock<std::mutex> lastExcepLock(lastExceptMutex);
+                        lastException = std::current_exception();
+                        /*
+                         * This will work even when current is the largest value that
+                         * size_t can fit, because fetch_add returns the previous value
+                         * before the increment (what will result in overflow
+                         * and produce 0 instead of current + 1).
+                         */
+                        current = end;
+                        break;
+                    }
+                }
+            }));
+        }
+        for (auto &thread : threads) {
+            thread.join();
+        }
+        if (lastException) {
+            std::rethrow_exception(lastException);
+        }
+    }
+}
+
+
 class ServerImpl final {
  public:
   ~ServerImpl() {
@@ -49,9 +105,42 @@ class ServerImpl final {
       cq->Shutdown();
   }
 
+
+
   // There is no shutdown handling in this code.
   void Run() {
     std::string server_address("0.0.0.0:50051");
+
+    int dim = 128;               // Dimension of the elements
+    int max_elements = 10000;   // Maximum number of elements, should be known beforehand
+    int M = 100;                 // Tightly connected with internal dimensionality of the data
+                                // strongly affects the memory consumption
+    int ef_construction = 1024;  // Controls index search speed/build speed tradeoff
+    int ef_search = 10000;
+    int num_threads = 10;
+
+    std::cout << "Initializing HNSW index" << std::endl;
+    // Initing index
+    hnswlib::L2Space space(dim);
+    alg_hnsw_ = new hnswlib::HierarchicalNSW<float>(&space, max_elements, M, ef_construction);
+
+    std::cout << "Adding points to HNSW index" << std::endl;
+    // Generate random data
+    std::mt19937 rng;
+    rng.seed(47);
+    std::uniform_real_distribution<> distrib_real(0.0, 1.0);
+    data_ = new float[dim * max_elements];
+    for (int i = 0; i < dim * max_elements; i++) {
+        data_[i] = distrib_real(rng);
+        
+    }
+
+    ParallelFor(0, max_elements, num_threads, [&](size_t row, size_t threadId) {
+        alg_hnsw_->addPoint((void*)(data_ + dim * row), row);
+    });
+
+    alg_hnsw_->setEf(ef_search);
+    std::cout << "Index built" << std::endl;
 
     ServerBuilder builder;
     // Listen on the given address without any authentication mechanism.
@@ -84,8 +173,8 @@ class ServerImpl final {
     // Take in the "service" instance (in this case representing an asynchronous
     // server) and the completion queue "cq" used for asynchronous communication
     // with the gRPC runtime.
-    CallData(Greeter::AsyncService* service, ServerCompletionQueue* cq)
-        : service_(service), cq_(cq), responder_(&ctx_), status_(CREATE) {
+    CallData(Greeter::AsyncService* service, ServerCompletionQueue* cq, hnswlib::HierarchicalNSW<float>* alg_hnsw, float * data)
+        : service_(service), cq_(cq), responder_(&ctx_), alg_hnsw_(alg_hnsw), data_(data), status_(CREATE) {
       // Invoke the serving logic right away.
       Proceed();
     }
@@ -102,11 +191,17 @@ class ServerImpl final {
         // the memory address of this CallData instance.
         service_->RequestSayHello(&ctx_, &request_, &responder_, cq_, cq_,
                                   this);
+
+        // Searching for 150th float vectors with k value of 1
+        std::priority_queue<std::pair<float, hnswlib::labeltype>> result = alg_hnsw_->searchKnn((void*)(data_ + 128 * 150), 1);
+        hnswlib::labeltype label = result.top().second;
+
+        std::cout << "Searched element: "<< label << std::endl;   
       } else if (status_ == PROCESS) {
         // Spawn a new CallData instance to serve new clients while we process
         // the one for this CallData. The instance will deallocate itself as
         // part of its FINISH state.
-        new CallData(service_, cq_);
+        new CallData(service_, cq_, alg_hnsw_, data_);
 
         // The actual processing.
         *reply_.mutable_response() = std::move(*request_.mutable_request());
@@ -142,6 +237,10 @@ class ServerImpl final {
     // The means to get back to the client.
     ServerAsyncResponseWriter<HelloReply> responder_;
 
+
+    hnswlib::HierarchicalNSW<float>* alg_hnsw_;
+    float* data_;
+
     // Let's implement a tiny state machine with the following states.
     enum CallStatus { CREATE, PROCESS, FINISH };
     CallStatus status_;  // The current serving state.
@@ -150,7 +249,7 @@ class ServerImpl final {
   // This can be run in multiple threads if needed.
   void HandleRpcs(int i) {
     // Spawn a new CallData instance to serve new clients.
-    new CallData(&service_, cq_[i].get());
+    new CallData(&service_, cq_[i].get(), alg_hnsw_, data_);
     void* tag;  // uniquely identifies a request.
     bool ok;
     while (true) {
@@ -169,6 +268,8 @@ class ServerImpl final {
   Greeter::AsyncService service_;
   std::unique_ptr<Server> server_;
   std::vector<std::jthread> server_threads_;
+  hnswlib::HierarchicalNSW<float>* alg_hnsw_;
+  float* data_;
 };
 
 int main(int argc, char** argv) {

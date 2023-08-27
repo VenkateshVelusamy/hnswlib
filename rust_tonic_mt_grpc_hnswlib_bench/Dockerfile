@@ -11,7 +11,7 @@ RUN yum install -y cmake protobuf-compiler-grpc clang cargo wget unzip
 
 # protoc for protobuf complilation
 RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.8.0/protoc-3.8.0-linux-x86_64.zip
-RUN unzip protoc-3.8.0-linux-x86_64.zip -d /usr/local
+RUN unzip protoc-3.8.0-linux-x86_64.zip -d /usr/local && rm protoc-3.8.0-linux-x86_64.zip
 
 RUN cargo build --release --locked
 
