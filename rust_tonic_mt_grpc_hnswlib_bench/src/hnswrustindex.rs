@@ -12,7 +12,8 @@ include_cpp! {
 }
 
 pub struct Index{
-    index: Pin<Box<HNSWBinding>>
+    index: Pin<Box<HNSWBinding>>,
+    data:  Vec<[f32; 128]>
 }
 
 unsafe impl Send for HNSWBinding {}
@@ -57,7 +58,8 @@ impl Index {
         }
 
         return Index {
-            index: ffiIndex
+            index: ffiIndex,
+            data: sample_vectors
         };
     }
 
@@ -65,7 +67,7 @@ impl Index {
         const dimension:usize = 128;
         let mut query_vector: [f32; dimension] = [0.051; dimension];
 
-        const k:usize = 2;
+        const k:usize = 1;
         let mut indices:[autocxx::c_int;k] = [autocxx::c_int(0);k];
         let mut coefficients:[f32;k] = [0.0;k];
 

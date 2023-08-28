@@ -6,7 +6,7 @@ BENCHMARKS_TO_RUN="${@}"
 BENCHMARKS_TO_RUN="${BENCHMARKS_TO_RUN:-$(find . -maxdepth 1 -name '*_bench' -type d | sort)}"
 
 RESULTS_DIR="results/$(date '+%y%d%mT%H%M%S')"
-export GRPC_BENCHMARK_DURATION=${GRPC_BENCHMARK_DURATION:-"120s"}
+export GRPC_BENCHMARK_DURATION=${GRPC_BENCHMARK_DURATION:-"60s"}
 export GRPC_BENCHMARK_WARMUP=${GRPC_BENCHMARK_WARMUP:-"5s"}
 export GRPC_SERVER_CPUS=${GRPC_SERVER_CPUS:-"4"}
 export GRPC_SERVER_RAM=${GRPC_SERVER_RAM:-"1024m"}
@@ -58,8 +58,8 @@ for benchmark in ${BENCHMARKS_TO_RUN}; do
 
 	printf 'Waiting for server to come up... '
 
-	# We are letting 60 seconds for the server to build hnsw index
-	sleep 60
+	# We are letting 30 seconds for the server to build hnsw index
+	sleep 30
 
 
 	timeout 60 sh -c 'until nc -z $0 $1; do sleep 1; done' localhost 50051
